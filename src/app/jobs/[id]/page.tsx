@@ -28,6 +28,7 @@ export default function JobDetail() {
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [freelancerAddress, setFreelancerAddress] = useState("");
   const [walletConnected, setWalletConnected] = useState(false);
@@ -40,6 +41,7 @@ export default function JobDetail() {
     if (!params.id) return; // Add check for params.id
     setLoading(true);
     setError(""); // Clear previous errors
+    setSuccessMessage(""); // Clear previous success messages on fetch
     try {
       // Attempt to fetch from blockchain first
       const jobData = await getJob(params.id as string);
@@ -112,6 +114,7 @@ export default function JobDetail() {
 
     setIsSubmitting(true);
     setError("");
+    setSuccessMessage("");
 
     try {
       if (!freelancerAddress || !ethers.utils.isAddress(freelancerAddress)) { // Add address validation
@@ -121,6 +124,7 @@ export default function JobDetail() {
       await assignFreelancer(job.id, freelancerAddress);
 
       // Refresh job data instead of reloading page
+      setSuccessMessage("Freelancer assigned successfully!");
       await fetchJob();
       setFreelancerAddress(""); // Clear input after assignment
       // Optionally show a success message
@@ -137,13 +141,15 @@ export default function JobDetail() {
     
     setIsSubmitting(true);
     setError("");
+    setSuccessMessage("");
     
     try {
       // Complete the job on blockchain
       await completeJob(job.id);
       
-      // Redirect to jobs page
-      router.push("/jobs/browse");
+      // Refresh job data and show success message
+      setSuccessMessage("Job completed and payment released successfully!");
+      await fetchJob();
     } catch (err) {
       console.error(err);
       setError("Failed to complete job. Please try again.");
@@ -338,6 +344,21 @@ export default function JobDetail() {
                 </div>
               )}
 
+              {successMessage && (
+                <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-green-700">{successMessage}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {error && (
                 <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
                   <div className="flex">
@@ -383,9 +404,8 @@ export default function JobDetail() {
                 {isClient && job.status === 1 && !isUnassigned && (
                   <div>
                     <h3 className="text-lg font-medium mb-4">Complete Job</h3>
-                    <p className="mb-4 text-gray-700">
-                      Once you complete this job, the funds will be released to the freelancer.
-                      This action cannot be undone.
+                    <p className="text-sm text-gray-600 mb-4">
+                      Once you confirm completion, the payment of {job.amount} ETH will be released to the freelancer ({shortenAddress(job.freelancer)}). This action cannot be undone.
                     </p>
                     <button
                       className={`bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 ${
@@ -437,7 +457,7 @@ export default function JobDetail() {
                   <div>
                     <h3 className="text-lg font-medium mb-4">Job Completed</h3>
                     <p className="text-gray-700">
-                      This job has been completed and the payment has been released to the freelancer.
+                      This job was completed on {formatDate(job.completedAt)} and the payment has been released to the freelancer ({shortenAddress(job.freelancer)}).
                     </p>
                   </div>
                 )}

@@ -1,18 +1,18 @@
-import { ethers } from "hardhat";
+import pkg from "hardhat";
+
+const {ethers} = pkg;
 
 async function main() {
-  console.log("Deploying FreelancerEscrow contract...");
-
   const FreelancerEscrow = await ethers.getContractFactory("FreelancerEscrow");
-  const freelancerEscrow = await FreelancerEscrow.deploy();
+  console.log("Deploying FreelancerEscrow...");
+  const escrow = await FreelancerEscrow.deploy();
 
-  await freelancerEscrow.waitForDeployment();
-  
-  const address = await freelancerEscrow.getAddress();
-  console.log(`FreelancerEscrow deployed to: ${address}`);
+  await escrow.deployed(); // Wait for the deployment transaction to be mined
+
+  console.log(`FreelancerEscrow deployed to: ${escrow.address}`);
+
 }
 
-// We recommend this pattern to be able to use async/await everywhere
 main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
