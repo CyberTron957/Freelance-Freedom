@@ -2,6 +2,7 @@ import { ethers } from 'ethers';
 
 // Replace with your deployed contract address
 export const CONTRACT_ADDRESS = '0x2d697F6fB489326eCaaBce7fC67678D3E8B838B1'
+export const CONTRACT_ADDRESS = '0x2d697F6fB489326eCaaBce7fC67678D3E8B838B1'
 
 export const ABI = [
     {
@@ -448,8 +449,69 @@ export const createJob = async (title: string, description: string) => {
     console.error("Final Receipt:", finalReceipt);
     console.error("Parsed Event Names Found:", foundEventNames); // Log found event names
     throw new Error("Could not determine Job ID after creation. Event missing or could not be parsed."); 
+  const signerContract = await getContract(true);
+  const provider = signerContract.provider;
+
+  const tx = await signerContract.createJob(title, description);
+  console.log(`Transaction sent. Hash: ${tx.hash}`); // Log TX hash immediately
+
+  // Wait for the transaction to be mined
+  await tx.wait(); 
+
+  // Add a delay
+  await new Promise(resolve => setTimeout(resolve, 2000)); // Keep 2s for now
+
+  // Explicitly fetch the transaction receipt again
+  const finalReceipt = await provider.getTransactionReceipt(tx.hash);
+
+  if (!finalReceipt) {
+      console.error("Could not fetch final transaction receipt.");
+      console.error(`Transaction Hash: ${tx.hash}`); 
+      throw new Error("Transaction confirmation failed or receipt unavailable.");
+  }
+
+  // Parse logs
+  const contractInterface = new ethers.utils.Interface(ABI);
+  let jobCreatedEventData: ethers.utils.LogDescription | null = null;
+  const foundEventNames: string[] = []; // Track all parsed event names
+
+  for (const log of finalReceipt.logs) {
+      try {
+          const parsedLog = contractInterface.parseLog(log);
+          foundEventNames.push(parsedLog.name); // Log name regardless
+          if (parsedLog.name === "JobCreated") {
+              jobCreatedEventData = parsedLog;
+              // Don't break; log all events found for debugging
+          }
+      } catch (error) {
+          continue;
+      }
+  }
+
+  if (!jobCreatedEventData || !jobCreatedEventData.args) {
+    console.error("JobCreated event not found or args missing in final transaction receipt logs.");
+    console.error("Transaction Hash:", tx.hash);
+    console.error("Final Receipt:", finalReceipt);
+    console.error("Parsed Event Names Found:", foundEventNames); // Log found event names
+    throw new Error("Could not determine Job ID after creation. Event missing or could not be parsed."); 
   }
   
+  // Find the *first* JobCreated event if multiple were somehow emitted (unlikely)
+  const firstJobCreatedEvent = finalReceipt.logs
+      .map(log => {
+          try { return contractInterface.parseLog(log); } catch { return null; }
+      })
+      .find(parsedLog => parsedLog?.name === "JobCreated");
+
+  if (!firstJobCreatedEvent || !firstJobCreatedEvent.args) {
+      // This case should theoretically not be reached if the previous check passed,
+      // but added for robustness.
+      console.error("Failed to re-find JobCreated event after initial check.");
+      throw new Error("Internal error processing JobCreated event.");
+  }
+
+  const jobId = firstJobCreatedEvent.args[0].toString(); 
+  console.log(`Successfully found JobCreated event for Job ID: ${jobId}`);
   // Find the *first* JobCreated event if multiple were somehow emitted (unlikely)
   const firstJobCreatedEvent = finalReceipt.logs
       .map(log => {
