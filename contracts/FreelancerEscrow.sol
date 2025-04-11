@@ -6,16 +6,17 @@ pragma solidity ^0.8.20;
  * @dev A simple escrow contract for freelancers and clients to work together
  */
 contract FreelancerEscrow {
+    // Keep Created status in case of 0 budget jobs, though unlikely use case now
     enum JobStatus { Created, Funded, Completed, Disputed, Refunded, Cancelled }
     
     struct Job {
         uint256 id;
         address client;
         address freelancer;
-        uint256 amount;
+        uint256 amount; // This will now hold the budget from creation
         string title;
         string description;
-        JobStatus status;
+        JobStatus status; // Will be Funded if amount > 0, else Created
         uint256 createdAt;
         uint256 completedAt;
     }
@@ -26,55 +27,53 @@ contract FreelancerEscrow {
     
     // Events
     event JobCreated(uint256 indexed jobId, address indexed client, string title, uint256 amount);
-    event JobFunded(uint256 indexed jobId, address indexed client);
     event JobAssigned(uint256 indexed jobId, address indexed freelancer);
     event JobCompleted(uint256 indexed jobId);
     event JobDisputed(uint256 indexed jobId);
     event JobRefunded(uint256 indexed jobId);
     event JobCancelled(uint256 indexed jobId);
     
-    // Create a new job without funding
-    function createJob(string memory _title, string memory _description) external returns (uint256) {
+    // Modifier to check if the job is funded
+    modifier onlyFundedJob(uint256 _jobId) {
+        require(jobs[_jobId].amount > 0, "Job must be funded");
+        require(jobs[_jobId].status == JobStatus.Funded, "Job status must be Funded");
+        _;
+    }
+    
+    // Create and potentially fund a new job in one transaction
+    function createJob(string memory _title, string memory _description) external payable returns (uint256) {
         uint256 jobId = jobCount++;
+        uint256 budget = msg.value; // Budget is sent with the transaction
+        
+        JobStatus initialStatus = JobStatus.Created;
+        if (budget > 0) {
+            initialStatus = JobStatus.Funded; // Set status to Funded if budget provided
+        }
         
         jobs[jobId] = Job({
             id: jobId,
             client: msg.sender,
             freelancer: address(0),
-            amount: 0,
+            amount: budget, // Store the sent budget
             title: _title,
             description: _description,
-            status: JobStatus.Created,
+            status: initialStatus,
             createdAt: block.timestamp,
             completedAt: 0
         });
         
-        emit JobCreated(jobId, msg.sender, _title, 0);
+        emit JobCreated(jobId, msg.sender, _title, budget); // Emit amount
         return jobId;
     }
     
-    // Fund an existing job
-    function fundJob(uint256 _jobId) external payable {
-        Job storage job = jobs[_jobId];
-        
-        require(job.client == msg.sender, "Only the client can fund this job");
-        require(job.status == JobStatus.Created, "Job must be in Created status");
-        require(msg.value > 0, "Amount must be greater than 0");
-        
-        job.amount = msg.value;
-        job.status = JobStatus.Funded;
-        
-        emit JobFunded(_jobId, msg.sender);
-    }
-    
-    // Assign a freelancer to a job
-    function assignFreelancer(uint256 _jobId, address _freelancer) external {
+    // Assign a freelancer to a funded job
+    function assignFreelancer(uint256 _jobId, address _freelancer) external onlyFundedJob(_jobId) {
         Job storage job = jobs[_jobId];
         
         require(job.client == msg.sender, "Only the client can assign a freelancer");
-        require(job.status == JobStatus.Funded, "Job must be funded first");
         require(_freelancer != address(0), "Invalid freelancer address");
         require(_freelancer != job.client, "Client cannot be the freelancer");
+        require(job.freelancer == address(0), "Freelancer already assigned"); // Prevent re-assignment
         
         job.freelancer = _freelancer;
         
@@ -82,15 +81,14 @@ contract FreelancerEscrow {
     }
     
     // Complete a job - only client can mark as complete
-    function completeJob(uint256 _jobId) external {
+    function completeJob(uint256 _jobId) external onlyFundedJob(_jobId) {
         Job storage job = jobs[_jobId];
         
         require(job.client == msg.sender, "Only the client can complete this job");
-        require(job.status == JobStatus.Funded, "Job must be in Funded status");
         require(job.freelancer != address(0), "Job must have an assigned freelancer");
         
         // Transfer funds to freelancer
-        (bool success, ) = job.freelancer.call{value: job.amount}("");
+        (bool success, ) = payable(job.freelancer).call{value: job.amount}(""); // Make address payable
         require(success, "Transfer failed");
         
         job.status = JobStatus.Completed;
@@ -99,16 +97,15 @@ contract FreelancerEscrow {
         emit JobCompleted(_jobId);
     }
     
-    // Cancel a job - only possible before a freelancer is assigned
-    function cancelJob(uint256 _jobId) external {
+    // Cancel a funded job - only possible before a freelancer is assigned
+    function cancelJob(uint256 _jobId) external onlyFundedJob(_jobId) {
         Job storage job = jobs[_jobId];
         
         require(job.client == msg.sender, "Only the client can cancel this job");
-        require(job.status == JobStatus.Funded, "Job must be in Funded status");
         require(job.freelancer == address(0), "Cannot cancel if freelancer is assigned");
         
         // Return funds to client
-        (bool success, ) = job.client.call{value: job.amount}("");
+        (bool success, ) = payable(job.client).call{value: job.amount}(""); // Make address payable
         require(success, "Transfer failed");
         
         job.status = JobStatus.Cancelled;
@@ -128,7 +125,8 @@ contract FreelancerEscrow {
         uint256 createdAt,
         uint256 completedAt
     ) {
-        Job memory job = jobs[_jobId];
+        require(_jobId < jobCount, "Job does not exist");
+        Job storage job = jobs[_jobId]; // Use storage pointer for view function is fine
         return (
             job.id,
             job.client,

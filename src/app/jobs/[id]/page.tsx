@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getJob, assignFreelancer, completeJob, connectWallet, getWalletConnection, getUserRole } from "@/services/blockchain";
+import { getJob, assignFreelancer, completeJob, connectWallet, getWalletConnection, getUserRole, fundJob } from "@/services/blockchain";
 import { ethers } from 'ethers';
 
 // Status enum mapping
@@ -28,8 +28,10 @@ export default function JobDetail() {
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [freelancerAddress, setFreelancerAddress] = useState("");
+  const [fundAmount, setFundAmount] = useState("");
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -40,6 +42,7 @@ export default function JobDetail() {
     if (!params.id) return; // Add check for params.id
     setLoading(true);
     setError(""); // Clear previous errors
+    setSuccessMessage(""); // Clear previous success messages on fetch
     try {
       // Attempt to fetch from blockchain first
       const jobData = await getJob(params.id as string);
@@ -107,11 +110,25 @@ export default function JobDetail() {
   const zeroAddress = "0x0000000000000000000000000000000000000000";
   const isUnassigned = job?.freelancer === zeroAddress;
 
+  // Debug log for Apply Button visibility conditions
+  useEffect(() => {
+    if (job) { // Only log when job data is available
+      console.log("--- Apply Button Conditions ---");
+      console.log("Wallet Connected:", walletConnected);
+      console.log("Is Client:", isClient);
+      console.log("Is Assigned Freelancer:", isFreelancer);
+      console.log("Job Status:", job.status, `(${JobStatus[job.status] || 'Unknown'})`);
+      console.log("Is Unassigned (Freelancer == Zero Address):", isUnassigned);
+      console.log("--- End Apply Button Conditions ---");
+    }
+  }, [job, walletConnected, isClient, isFreelancer, isUnassigned]); // Rerun log if any condition changes
+
   const handleAssignFreelancer = async () => {
     if (!job || !walletConnected) return;
 
     setIsSubmitting(true);
     setError("");
+    setSuccessMessage("");
 
     try {
       if (!freelancerAddress || !ethers.utils.isAddress(freelancerAddress)) { // Add address validation
@@ -121,6 +138,7 @@ export default function JobDetail() {
       await assignFreelancer(job.id, freelancerAddress);
 
       // Refresh job data instead of reloading page
+      setSuccessMessage("Freelancer assigned successfully!");
       await fetchJob();
       setFreelancerAddress(""); // Clear input after assignment
       // Optionally show a success message
@@ -137,16 +155,45 @@ export default function JobDetail() {
     
     setIsSubmitting(true);
     setError("");
+    setSuccessMessage("");
     
     try {
       // Complete the job on blockchain
       await completeJob(job.id);
       
-      // Redirect to jobs page
-      router.push("/jobs/browse");
+      // Refresh job data and show success message
+      setSuccessMessage("Job completed and payment released successfully!");
+      await fetchJob();
     } catch (err) {
       console.error(err);
       setError("Failed to complete job. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Fund the job
+  const handleFundJob = async () => {
+    if (!job || !walletConnected || !fundAmount) return;
+
+    setIsSubmitting(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      const amount = parseFloat(fundAmount);
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error("Please enter a valid positive amount to fund.");
+      }
+
+      await fundJob(job.id, fundAmount);
+      setSuccessMessage(`Job successfully funded with ${fundAmount} ETH!`);
+      setFundAmount(""); // Clear input
+      await fetchJob(); // Refresh job details
+
+    } catch (err: any) {
+      console.error("Funding failed:", err);
+      setError(err.message || "Failed to fund job. Please check the amount and try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -338,6 +385,21 @@ export default function JobDetail() {
                 </div>
               )}
 
+              {successMessage && (
+                <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-green-700">{successMessage}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {error && (
                 <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
                   <div className="flex">
@@ -354,7 +416,39 @@ export default function JobDetail() {
               )}
 
               {/* Actions based on role and job status */}
-              <div className="mt-8 border-t border-gray-200 pt-6">
+              <div className="mt-8 border-t border-gray-200 pt-6 space-y-6">
+                {/* Fund Job Section */}
+                {isClient && job.status === 0 && (
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Fund This Job</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Enter the budget amount in ETH. This amount will be held in escrow by the contract
+                      until the job is completed and you release the payment.
+                    </p>
+                    <div className="flex">
+                      <input
+                        type="number"
+                        placeholder="Amount in ETH (e.g., 0.5)"
+                        step="0.001"
+                        min="0.000001"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                        value={fundAmount}
+                        onChange={(e) => setFundAmount(e.target.value)}
+                        disabled={isSubmitting}
+                      />
+                      <button
+                        className={`bg-yellow-500 text-white px-4 py-2 rounded-r-md hover:bg-yellow-600 ${
+                          isSubmitting && "opacity-50 cursor-not-allowed"
+                        }`}
+                        onClick={handleFundJob}
+                        disabled={isSubmitting || !fundAmount}
+                      >
+                        {isSubmitting ? "Funding..." : "Fund Job"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {isClient && job.status === 1 && isUnassigned && (
                   <div>
                     <h3 className="text-lg font-medium mb-4">Assign Freelancer</h3>
@@ -383,9 +477,8 @@ export default function JobDetail() {
                 {isClient && job.status === 1 && !isUnassigned && (
                   <div>
                     <h3 className="text-lg font-medium mb-4">Complete Job</h3>
-                    <p className="mb-4 text-gray-700">
-                      Once you complete this job, the funds will be released to the freelancer.
-                      This action cannot be undone.
+                    <p className="text-sm text-gray-600 mb-4">
+                      Once you confirm completion, the payment of {job.amount} ETH will be released to the freelancer ({shortenAddress(job.freelancer)}). This action cannot be undone.
                     </p>
                     <button
                       className={`bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 ${
@@ -409,7 +502,7 @@ export default function JobDetail() {
                   </div>
                 )}
 
-                {walletConnected && userRole === 'freelancer' && !isClient && !isFreelancer && job.status === 1 && isUnassigned && (
+                {walletConnected && !isClient && !isFreelancer && job?.status === 1 && isUnassigned && (
                   <div>
                     <h3 className="text-lg font-medium mb-4">Apply for This Job</h3>
                     <p className="text-gray-700 mb-4">
@@ -437,7 +530,7 @@ export default function JobDetail() {
                   <div>
                     <h3 className="text-lg font-medium mb-4">Job Completed</h3>
                     <p className="text-gray-700">
-                      This job has been completed and the payment has been released to the freelancer.
+                      This job was completed on {formatDate(job.completedAt)} and the payment has been released to the freelancer ({shortenAddress(job.freelancer)}).
                     </p>
                   </div>
                 )}

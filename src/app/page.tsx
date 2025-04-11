@@ -59,7 +59,7 @@ export default function Home() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   </div>
-                  <h4 className="text-xl font-semibold text-center mb-2">I'm a Client</h4>
+                  <h4 className="text-xl font-semibold text-center mb-2 text-black">I'm a Client</h4>
                   <p className="text-gray-600 text-center">I want to post jobs and hire freelancers</p>
                 </div>
                 
@@ -74,7 +74,7 @@ export default function Home() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   </div>
-                  <h4 className="text-xl font-semibold text-center mb-2">I'm a Freelancer</h4>
+                  <h4 className="text-xl font-semibold text-center mb-2 text-black">I'm a Freelancer</h4>
                   <p className="text-gray-600 text-center">I want to find jobs and work on projects</p>
                 </div>
               </div>
@@ -144,7 +144,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="bg-gray-800 text-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p>© 2023 FreelanceFreedom. Built for hackathon demonstration.</p>
+          <p>© 2025 FreelanceFreedom. Built for hackathon demonstration.</p>
         </div>
       </footer>
     </div>
