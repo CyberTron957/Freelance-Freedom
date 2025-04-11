@@ -419,84 +419,107 @@ export const connectWallet = async () => {
 
 // Get a contract instance
 export const getContract = async (withSigner = false) => {
-  if (typeof window === 'undefined' || !window.ethereum) 
-    throw new Error("MetaMask is not installed");
+  if (typeof window === 'undefined' || typeof window.ethereum === 'undefined') {
+    console.error("MetaMask is not installed!");
+    // Fallback to a default provider if needed, or handle error
+    // Example: return new ethers.Contract(CONTRACT_ADDRESS, ABI, ethers.getDefaultProvider());
+    // For now, let's throw an error or return null, depending on desired behavior
+    throw new Error("MetaMask is not installed or window is not defined.");
+  }
+
+  // Use BrowserProvider for Ethers v6
+  const provider = new ethers.BrowserProvider(window.ethereum);
   
-  // Use Web3Provider instead of BrowserProvider for ethers v5
-  const provider = new ethers.providers.Web3Provider(window.ethereum);
-  
+  let signerOrProvider;
   if (withSigner) {
-    const signer = provider.getSigner();
-    return new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    // Request accounts and get the signer if we need to send a transaction
+    await provider.send("eth_requestAccounts", []);
+    signerOrProvider = await provider.getSigner();
+  } else {
+    // Use the provider directly for read-only operations
+    signerOrProvider = provider;
   }
   
-  return new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+  const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signerOrProvider);
+  return contract;
 };
 
 // Create a new job
 export const createJob = async (title: string, description: string) => {
   const signerContract = await getContract(true);
-  const provider = signerContract.provider;
+
+  // Get provider from the contract's runner (signer) in Ethers v6
+  const runner = signerContract.runner;
+  if (!runner?.provider) {
+    throw new Error("Provider not found on contract runner (signer).");
+  }
+  const provider = runner.provider;
 
   const tx = await signerContract.createJob(title, description);
   console.log(`Transaction sent. Hash: ${tx.hash}`); // Log TX hash immediately
 
   // Wait for the transaction to be mined
-  await tx.wait(); 
+  const receipt = await tx.wait(); 
 
-  // Add a delay
-  await new Promise(resolve => setTimeout(resolve, 2000)); // Keep 2s for now
-
-  // Explicitly fetch the transaction receipt again
-  const finalReceipt = await provider.getTransactionReceipt(tx.hash);
-
-  if (!finalReceipt) {
-      console.error("Could not fetch final transaction receipt.");
-      console.error(`Transaction Hash: ${tx.hash}`); 
-      throw new Error("Transaction confirmation failed or receipt unavailable.");
+  if (!receipt) {
+    console.error("Transaction receipt is null after waiting.");
+    console.error(`Transaction Hash: ${tx.hash}`);
+    throw new Error("Transaction confirmation failed or receipt unavailable.");
   }
 
-  // Parse logs
-  const contractInterface = new ethers.utils.Interface(ABI);
-  let jobCreatedEventData: ethers.utils.LogDescription | null = null;
+  // Parse logs from the receipt obtained via tx.wait()
+  // NOTE: Using receipt.logs directly is generally preferred over fetching again unless specifically needed.
+  const contractInterface = new ethers.Interface(ABI); // Use ethers.Interface in v6
+  let jobCreatedEventData: ethers.LogDescription | null = null;
   const foundEventNames: string[] = []; // Track all parsed event names
 
-  for (const log of finalReceipt.logs) {
+  // Use receipt.logs directly
+  for (const log of receipt.logs) {
       try {
-          const parsedLog = contractInterface.parseLog(log);
-          foundEventNames.push(parsedLog.name); // Log name regardless
-          if (parsedLog.name === "JobCreated") {
-              jobCreatedEventData = parsedLog;
-              // Don't break; log all events found for debugging
+          // Explicitly type parsedLog
+          const parsedLog: ethers.LogDescription | null = contractInterface.parseLog({ topics: [...log.topics], data: log.data });
+          if (parsedLog) {
+            foundEventNames.push(parsedLog.name); // Log name regardless
+            if (parsedLog.name === "JobCreated") {
+                jobCreatedEventData = parsedLog;
+                // Don't break; log all events found for debugging
+            }
           }
       } catch (error) {
+          // Log might not be from our contract, or ABI doesn't match
+          // console.debug("Could not parse log:", log, error); // Optional: debug logging
           continue;
       }
   }
 
   if (!jobCreatedEventData || !jobCreatedEventData.args) {
-    console.error("JobCreated event not found or args missing in final transaction receipt logs.");
+    console.error("JobCreated event not found or args missing in transaction receipt logs.");
     console.error("Transaction Hash:", tx.hash);
-    console.error("Final Receipt:", finalReceipt);
+    console.error("Final Receipt:", receipt); // Log the receipt we have
     console.error("Parsed Event Names Found:", foundEventNames); // Log found event names
     throw new Error("Could not determine Job ID after creation. Event missing or could not be parsed."); 
   }
   
-  // Find the *first* JobCreated event if multiple were somehow emitted (unlikely)
-  const firstJobCreatedEvent = finalReceipt.logs
-      .map(log => {
-          try { return contractInterface.parseLog(log); } catch { return null; }
+  // Re-parsing to find the first event (optional if the loop logic is sufficient)
+  const firstJobCreatedEvent = receipt.logs
+      .map((log: ethers.Log) => { // Add explicit type for log in map
+          try { 
+              // Ensure log format matches what parseLog expects
+              return contractInterface.parseLog({ topics: [...log.topics], data: log.data }); 
+          } catch { return null; }
       })
-      .find(parsedLog => parsedLog?.name === "JobCreated");
+      // Add explicit type for parsedLog in find
+      .find((parsedLog: ethers.LogDescription | null) => parsedLog?.name === "JobCreated");
 
   if (!firstJobCreatedEvent || !firstJobCreatedEvent.args) {
-      // This case should theoretically not be reached if the previous check passed,
-      // but added for robustness.
       console.error("Failed to re-find JobCreated event after initial check.");
       throw new Error("Internal error processing JobCreated event.");
   }
 
-  const jobId = firstJobCreatedEvent.args[0].toString(); 
+  // In Ethers v6, BigInt is often used for uint256. Convert safely.
+  const jobIdBigInt = firstJobCreatedEvent.args[0];
+  const jobId = typeof jobIdBigInt === 'bigint' ? jobIdBigInt.toString() : jobIdBigInt;
+  
   console.log(`Successfully found JobCreated event for Job ID: ${jobId}`);
   return jobId;
 };
@@ -504,7 +527,8 @@ export const createJob = async (title: string, description: string) => {
 // Fund a job
 export const fundJob = async (jobId: string | number, amount: string | number) => {
   const contract = await getContract(true);
-  const amountInWei = ethers.utils.parseEther(amount.toString());
+  // Use ethers.parseEther in v6
+  const amountInWei = ethers.parseEther(amount.toString()); 
   const tx = await contract.fundJob(jobId, { value: amountInWei });
   await tx.wait();
 };
@@ -528,16 +552,23 @@ export const getJob = async (jobId: string | number) => {
   const contract = await getContract();
   const job = await contract.getJob(jobId);
   
+  // Use ethers.formatEther in v6
+  // Handle potential BigInt return values from contract
+  const amount = job.amount; // Assuming job.amount is BigInt or similar
+  const status = job.status; // Assuming job.status might be number or BigInt
+  const createdAt = job.createdAt; // Assuming job.createdAt is BigInt
+  const completedAt = job.completedAt; // Assuming job.completedAt is BigInt
+  
   return {
-    id: job.id.toString(),
+    id: typeof job.id === 'bigint' ? job.id.toString() : job.id,
     client: job.client,
     freelancer: job.freelancer,
-    amount: ethers.utils.formatEther(job.amount),
+    amount: ethers.formatEther(amount),
     title: job.title,
     description: job.description,
-    status: job.status,
-    createdAt: Number(job.createdAt) * 1000, // Convert to JavaScript timestamp
-    completedAt: Number(job.completedAt) * 1000
+    status: typeof status === 'bigint' ? Number(status) : status, // Convert BigInt status to number if needed
+    createdAt: (typeof createdAt === 'bigint' ? Number(createdAt) : createdAt) * 1000, // Convert BigInt timestamp
+    completedAt: (typeof completedAt === 'bigint' ? Number(completedAt) : completedAt) * 1000 // Convert BigInt timestamp
   };
 };
 
@@ -545,7 +576,8 @@ export const getJob = async (jobId: string | number) => {
 export const getJobCount = async () => {
   const contract = await getContract();
   const count = await contract.getJobCount();
-  return count.toString();
+  // Handle potential BigInt return value
+  return typeof count === 'bigint' ? count.toString() : count;
 };
 
 // Get all jobs (limited by count)
