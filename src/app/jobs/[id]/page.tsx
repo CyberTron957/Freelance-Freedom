@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getJob, assignFreelancer, completeJob, connectWallet } from "@/services/blockchain";
+import { getJob, assignFreelancer, completeJob, connectWallet, getWalletConnection, getUserRole } from "@/services/blockchain";
+import { ethers } from 'ethers';
 
 // Status enum mapping
 const JobStatus = ["Created", "Funded", "Completed", "Disputed", "Refunded", "Cancelled"];
@@ -31,6 +32,40 @@ export default function JobDetail() {
   const [freelancerAddress, setFreelancerAddress] = useState("");
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [appliedMessage, setAppliedMessage] = useState("");
+
+  // Memoize fetchJob using useCallback to ensure stable reference
+  const fetchJob = useCallback(async () => {
+    if (!params.id) return; // Add check for params.id
+    setLoading(true);
+    setError(""); // Clear previous errors
+    try {
+      // Attempt to fetch from blockchain first
+      const jobData = await getJob(params.id as string);
+      setJob(jobData);
+    } catch (err) {
+      console.error("Error fetching job details from blockchain, using mock data:", err);
+      setError("Failed to load job details from blockchain. Displaying mock data."); // Inform user about fallback
+      
+      // Restore mock data fallback logic
+      const mockJob = {
+        id: params.id as string,
+        client: "0x123...456", // Example client
+        freelancer: params.id === "2" ? "0xabc...def" : "0x0000000000000000000000000000000000000000", // Example freelancer or zero address
+        amount: "1",
+        title: "Mock Job: Build a Website", // Indicate it's mock
+        description: "This is mock data. Looking for a developer to build a portfolio website...",
+        status: params.id === "2" ? 1 : 1, // Funded
+        createdAt: Date.now() - 86400000,
+        completedAt: 0
+      };
+      setJob(mockJob);
+      // setJob(null); // Original line: Clear potentially stale job data on error
+    } finally {
+      setLoading(false);
+    }
+  }, [params.id]); // Add params.id as dependency
 
   // Connect wallet
   const handleConnectWallet = async () => {
@@ -46,63 +81,52 @@ export default function JobDetail() {
     }
   };
 
+  // Check user role on component mount
   useEffect(() => {
-    const fetchJob = async () => {
-      setLoading(true);
-      try {
-        // Try to get the job from blockchain
-        try {
-          const jobData = await getJob(params.id as string);
-          setJob(jobData);
-        } catch (err) {
-          console.error("Error fetching from blockchain, using mock data:", err);
-          
-          // Mock data for demo if contract not deployed
-          const mockJob = {
-            id: params.id as string,
-            client: "0x123...456",
-            freelancer: params.id === "2" ? "0xabc...def" : "0x000...000",
-            amount: "1",
-            title: "Build a Website",
-            description: "Looking for a developer to build a portfolio website with React. Must have experience with Next.js, Tailwind CSS, and responsive design. The website should include a homepage, about page, portfolio section, and contact form. All code should be clean, well-documented, and optimized for performance. Expected timeline is 2 weeks with regular progress updates.",
-            status: params.id === "2" ? 1 : 1, // Funded
-            createdAt: Date.now() - 86400000,
-            completedAt: 0
-          };
-          setJob(mockJob);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
+    const { address, connected } = getWalletConnection();
+    if (connected && address) {
+      setWalletConnected(true);
+      setWalletAddress(address);
+    }
     
+    const role = getUserRole();
+    if (role) {
+      setUserRole(role);
+    }
+  }, []);
+
+  // Fetch job details on mount or when id changes
+  useEffect(() => {
     fetchJob();
-  }, [params.id]);
+  }, [fetchJob]); // Use the memoized fetchJob
 
   // Check if the current user is the client or freelancer
   const isClient = walletConnected && job?.client.toLowerCase() === walletAddress.toLowerCase();
   const isFreelancer = walletConnected && job?.freelancer.toLowerCase() === walletAddress.toLowerCase();
-  const isUnassigned = job?.freelancer === "0x0000000000000000000000000000000000000000" || job?.freelancer === "0x000...000";
+  // Standardize zero address check
+  const zeroAddress = "0x0000000000000000000000000000000000000000";
+  const isUnassigned = job?.freelancer === zeroAddress;
 
   const handleAssignFreelancer = async () => {
     if (!job || !walletConnected) return;
-    
+
     setIsSubmitting(true);
     setError("");
-    
+
     try {
-      if (!freelancerAddress) {
-        throw new Error("Please enter a freelancer address");
+      if (!freelancerAddress || !ethers.utils.isAddress(freelancerAddress)) { // Add address validation
+        throw new Error("Please enter a valid freelancer wallet address");
       }
-      
-      // Assign the freelancer on blockchain
+
       await assignFreelancer(job.id, freelancerAddress);
-      
-      // Refresh page
-      window.location.reload();
-    } catch (err) {
+
+      // Refresh job data instead of reloading page
+      await fetchJob();
+      setFreelancerAddress(""); // Clear input after assignment
+      // Optionally show a success message
+    } catch (err: any) { // Type error
       console.error(err);
-      setError("Failed to assign freelancer. Please try again.");
+      setError(err.message || "Failed to assign freelancer. Please check the address and try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -128,6 +152,31 @@ export default function JobDetail() {
     }
   };
 
+  // Apply for job as freelancer
+  const handleApply = async () => {
+    if (!job || !walletConnected) return;
+
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      // TODO: Mock Implementation for Hackathon Demo
+      // This currently only simulates applying by storing the job ID in localStorage
+      // and showing a message. A real implementation would require an on-chain
+      // application mechanism or an off-chain notification system for the client.
+      const appliedJobs = JSON.parse(localStorage.getItem('appliedJobs') || '[]');
+      appliedJobs.push(job.id);
+      localStorage.setItem('appliedJobs', JSON.stringify(appliedJobs));
+
+      setAppliedMessage("Your application has been sent to the client. They will contact you if interested.");
+    } catch (err) {
+      console.error(err);
+      setError("Failed to apply for job. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Format date
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString();
@@ -135,12 +184,22 @@ export default function JobDetail() {
 
   // Shorten address
   const shortenAddress = (address: string) => {
-    if (address === "0x000...000" || address === "0x0000000000000000000000000000000000000000") {
+    // Use standardized zero address check
+    if (address === zeroAddress) {
       return "Not Assigned";
     }
     return address.length > 10 ? 
       `${address.substring(0, 6)}...${address.substring(address.length - 4)}` : 
       address;
+  };
+
+  // Check if already applied
+  const hasApplied = () => {
+    if (typeof window !== 'undefined') {
+      const appliedJobs = JSON.parse(localStorage.getItem('appliedJobs') || '[]');
+      return job ? appliedJobs.includes(job.id) : false;
+    }
+    return false;
   };
 
   return (
@@ -171,12 +230,14 @@ export default function JobDetail() {
                 >
                   Browse Jobs
                 </Link>
-                <Link
-                  href="/jobs/create"
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                >
-                  Post a Job
-                </Link>
+                {userRole === 'client' && (
+                  <Link
+                    href="/jobs/create"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+                  >
+                    Post a Job
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -220,7 +281,7 @@ export default function JobDetail() {
               <div className="flex justify-between mb-6">
                 <div>
                   <p className="text-sm text-gray-500">Posted by</p>
-                  <p className="text-md font-medium">{shortenAddress(job.client)}</p>
+                  <p className="text-md font-medium">{isClient ? "You" : shortenAddress(job.client)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Budget</p>
@@ -236,6 +297,21 @@ export default function JobDetail() {
                 <h2 className="text-lg font-medium mb-2">Description</h2>
                 <p className="text-gray-700 whitespace-pre-line">{job.description}</p>
               </div>
+
+              {appliedMessage && (
+                <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-green-700">{appliedMessage}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {!walletConnected && (
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
@@ -333,18 +409,27 @@ export default function JobDetail() {
                   </div>
                 )}
 
-                {walletConnected && !isClient && !isFreelancer && job.status === 1 && isUnassigned && (
+                {walletConnected && userRole === 'freelancer' && !isClient && !isFreelancer && job.status === 1 && isUnassigned && (
                   <div>
                     <h3 className="text-lg font-medium mb-4">Apply for This Job</h3>
                     <p className="text-gray-700 mb-4">
-                      Interested in this job? Contact the client directly to discuss details.
+                      Interested in this job? Apply now to let the client know you're available.
                     </p>
-                    <button
-                      className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-                      onClick={() => alert("In a real app, this would open a messaging system.")}
-                    >
-                      Contact Client
-                    </button>
+                    {hasApplied() ? (
+                      <div className="bg-blue-50 p-4 rounded-md">
+                        <p className="text-blue-700">You have already applied for this job. The client will contact you if interested.</p>
+                      </div>
+                    ) : (
+                      <button
+                        className={`bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 ${
+                          isSubmitting && "opacity-50 cursor-not-allowed"
+                        }`}
+                        onClick={handleApply}
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? "Applying..." : "Apply for Job"}
+                      </button>
+                    )}
                   </div>
                 )}
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createJob, fundJob, connectWallet } from "@/services/blockchain";
+import { createJob, fundJob, connectWallet, getWalletConnection } from "@/services/blockchain";
 
 export default function CreateJob() {
   const router = useRouter();
@@ -38,22 +38,32 @@ export default function CreateJob() {
     try {
       if (!walletConnected) {
         await handleConnectWallet();
-        if (!walletConnected) {
+        // Re-check connection status after attempting to connect
+        const currentConnection = getWalletConnection(); 
+        if (!currentConnection.connected) {
           throw new Error("Please connect your wallet first");
         }
+        // Update state if connection was successful within handleSubmit
+        setWalletConnected(true);
+        setWalletAddress(currentConnection.address || ""); 
       }
 
       // Create the job on blockchain
+      console.log("Creating job...");
       const jobId = await createJob(title, description);
+      console.log(`Job created with ID: ${jobId}`);
       
-      // Fund the job
-      await fundJob(jobId, budget);
+      // --- MOCK FOR TESTING --- 
+      // Skip actual funding as requested, job state will remain 'Created' on-chain.
+      // await fundJob(jobId, budget); 
+      console.warn(`Skipping funding for job ${jobId} for testing purposes.`);
+      // --- END MOCK --- 
       
-      // Redirect to jobs page
-      router.push("/jobs/browse");
-    } catch (err) {
-      console.error(err);
-      setError("Failed to create job. Please try again.");
+      // Redirect to the newly created job detail page
+      router.push(`/jobs/${jobId}`); 
+    } catch (err: any) {
+      console.error("Job creation failed:", err);
+      setError(err.message || "Failed to create job. Please check console and try again.");
     } finally {
       setIsLoading(false);
     }
@@ -163,7 +173,7 @@ export default function CreateJob() {
                 type="number"
                 id="budget"
                 step="0.001"
-                min="0.001"
+                min="0.000"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 value={budget}
                 onChange={(e) => setBudget(e.target.value)}

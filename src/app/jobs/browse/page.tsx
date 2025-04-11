@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getAllJobs, connectWallet } from "@/services/blockchain";
+import { getAllJobs, connectWallet, getWalletConnection, getUserRole } from "@/services/blockchain";
 
 // Status enum mapping
 const JobStatus = ["Created", "Funded", "Completed", "Disputed", "Refunded", "Cancelled"];
@@ -25,6 +25,21 @@ export default function BrowseJobs() {
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
   const [error, setError] = useState("");
+  const [userRole, setUserRole] = useState<string | null>(null);
+  
+  // Check for stored wallet connection and user role
+  useEffect(() => {
+    const { address, connected } = getWalletConnection();
+    if (connected && address) {
+      setWalletConnected(true);
+      setWalletAddress(address);
+    }
+    
+    const role = getUserRole();
+    if (role) {
+      setUserRole(role);
+    }
+  }, []);
   
   // Connect wallet
   const handleConnectWallet = async () => {
@@ -112,6 +127,21 @@ export default function BrowseJobs() {
       address;
   };
 
+  // Filter jobs based on user role
+  const filteredJobs = jobs.filter(job => {
+    const zeroAddress = "0x0000000000000000000000000000000000000000"; // Define zero address
+    if (userRole === 'client') {
+      // Clients see jobs they've posted
+      return walletConnected && job.client.toLowerCase() === walletAddress.toLowerCase();
+    } else {
+      // Freelancers see unassigned jobs or jobs assigned to them
+      // Standardize zero address check
+      const isUnassigned = job.freelancer === zeroAddress;
+      return isUnassigned || 
+             (walletConnected && job.freelancer.toLowerCase() === walletAddress.toLowerCase());
+    }
+  });
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -134,12 +164,14 @@ export default function BrowseJobs() {
                   {shortenAddress(walletAddress)}
                 </span>
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <Link
-                  href="/jobs/create"
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                >
-                  Post a Job
-                </Link>
+                {userRole === 'client' && (
+                  <Link
+                    href="/jobs/create"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+                  >
+                    Post a Job
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -165,15 +197,9 @@ export default function BrowseJobs() {
 
         <div className="bg-white shadow rounded-lg overflow-hidden">
           <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Available Jobs</h1>
-            {walletConnected && (
-              <Link
-                href="/jobs/create"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-              >
-                Post a Job
-              </Link>
-            )}
+            <h1 className="text-2xl font-bold text-gray-900">
+              {userRole === 'client' ? 'Your Posted Jobs' : 'Available Jobs'}
+            </h1>
           </div>
 
           {loading ? (
@@ -181,7 +207,7 @@ export default function BrowseJobs() {
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
               <p className="mt-4 text-gray-500">Loading jobs...</p>
             </div>
-          ) : jobs.length === 0 ? (
+          ) : filteredJobs.length === 0 ? (
             <div className="text-center py-12">
               <svg
                 className="mx-auto h-12 w-12 text-gray-400"
@@ -198,21 +224,29 @@ export default function BrowseJobs() {
                 />
               </svg>
               <h3 className="mt-2 text-sm font-medium text-gray-900">No jobs found</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Start by creating a new job posting.
-              </p>
-              <div className="mt-6">
-                <Link
-                  href="/jobs/create"
-                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  Create a new job
-                </Link>
-              </div>
+              {userRole === 'client' ? (
+                <div>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Start by creating a new job posting.
+                  </p>
+                  <div className="mt-6">
+                    <Link
+                      href="/jobs/create"
+                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    >
+                      Create a new job
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-1 text-sm text-gray-500">
+                  Check back later for new job opportunities.
+                </p>
+              )}
             </div>
           ) : (
             <ul className="divide-y divide-gray-200">
-              {jobs.map((job) => (
+              {filteredJobs.map((job) => (
                 <li key={job.id} className="p-6 hover:bg-gray-50">
                   <Link href={`/jobs/${job.id}`} className="block">
                     <div className="flex items-center justify-between">
@@ -227,7 +261,7 @@ export default function BrowseJobs() {
                     <div className="mt-4 flex items-center justify-between">
                       <div className="flex items-center">
                         <span className="text-xs text-gray-500">
-                          Client: {shortenAddress(job.client)} | Posted on {formatDate(job.createdAt)}
+                          {userRole === 'client' ? 'Posted by you' : `Client: ${shortenAddress(job.client)}`} | Posted on {formatDate(job.createdAt)}
                         </span>
                       </div>
                       <span
