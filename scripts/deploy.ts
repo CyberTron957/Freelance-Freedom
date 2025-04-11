@@ -7,9 +7,9 @@ async function main() {
   console.log("Deploying FreelancerEscrow...");
   const escrow = await FreelancerEscrow.deploy();
 
-  await escrow.deployed(); // Wait for the deployment transaction to be mined
+  await escrow.waitForDeployment();
 
-  console.log(`FreelancerEscrow deployed to: ${escrow.address}`);
+  console.log(`FreelancerEscrow deployed to: ${await escrow.getAddress()}`);
 
 }
 

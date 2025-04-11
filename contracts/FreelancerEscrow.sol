@@ -23,6 +23,10 @@ contract FreelancerEscrow {
     // Store all jobs in the contract
     mapping(uint256 => Job) public jobs;
     uint256 public jobCount;
+    // Store applicants for each job
+    mapping(uint256 => address[]) public jobApplicants; 
+    // Keep track of who has applied to which job to prevent duplicates
+    mapping(uint256 => mapping(address => bool)) public hasApplied;
     
     // Events
     event JobCreated(uint256 indexed jobId, address indexed client, string title, uint256 amount);
@@ -32,6 +36,7 @@ contract FreelancerEscrow {
     event JobDisputed(uint256 indexed jobId);
     event JobRefunded(uint256 indexed jobId);
     event JobCancelled(uint256 indexed jobId);
+    event JobApplied(uint256 indexed jobId, address indexed applicant);
     
     // Create a new job without funding
     function createJob(string memory _title, string memory _description) external returns (uint256) {
@@ -65,6 +70,21 @@ contract FreelancerEscrow {
         job.status = JobStatus.Funded;
         
         emit JobFunded(_jobId, msg.sender);
+    }
+    
+    // Apply for a job - freelancers can apply
+    function applyForJob(uint256 _jobId) external {
+        Job storage job = jobs[_jobId];
+        
+        require(job.status == JobStatus.Funded, "Job must be funded to apply");
+        require(job.freelancer == address(0), "Job already has an assigned freelancer");
+        require(job.client != msg.sender, "Client cannot apply for their own job");
+        require(!hasApplied[_jobId][msg.sender], "You have already applied for this job");
+
+        jobApplicants[_jobId].push(msg.sender);
+        hasApplied[_jobId][msg.sender] = true;
+        
+        emit JobApplied(_jobId, msg.sender);
     }
     
     // Assign a freelancer to a job
@@ -140,6 +160,11 @@ contract FreelancerEscrow {
             job.createdAt,
             job.completedAt
         );
+    }
+    
+    // Get applicants for a job
+    function getJobApplicants(uint256 _jobId) external view returns (address[] memory) {
+        return jobApplicants[_jobId];
     }
     
     // Get all jobs

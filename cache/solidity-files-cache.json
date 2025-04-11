@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/Users/pradhyun/temp/windsurf/decent_platform/contracts/FreelancerEscrow.sol": {
-      "lastModificationDate": 1744310915213,
-      "contentHash": "7650b0f9d97cde72511ae5c73a9e6bc8",
+      "lastModificationDate": 1744406343473,
+      "contentHash": "28face0b3f5518438712bfec79dbc9a4",
       "sourceName": "contracts/FreelancerEscrow.sol",
       "solcConfig": {
         "version": "0.8.20",

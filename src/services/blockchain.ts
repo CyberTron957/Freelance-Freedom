@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 
 // Replace with your deployed contract address
-export const CONTRACT_ADDRESS = '0x2d697F6fB489326eCaaBce7fC67678D3E8B838B1'
+export const CONTRACT_ADDRESS = '0x4E826E6738FE1F007391c07eb73742AAdF8d16C7';
 
 export const ABI = [
     {
@@ -126,6 +126,25 @@ export const ABI = [
       "type": "event"
     },
     {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "jobId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "applicant",
+          "type": "address"
+        }
+      ],
+      "name": "JobApplied",
+      "type": "event"
+    },
+    {
       "inputs": [
         {
           "internalType": "uint256",
@@ -214,6 +233,19 @@ export const ABI = [
           "type": "uint256"
         }
       ],
+      "name": "applyForJob",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_jobId",
+          "type": "uint256"
+        }
+      ],
       "name": "getJob",
       "outputs": [
         {
@@ -260,6 +292,25 @@ export const ABI = [
           "internalType": "uint256",
           "name": "completedAt",
           "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_jobId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getJobApplicants",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "",
+          "type": "address[]"
         }
       ],
       "stateMutability": "view",
@@ -603,4 +654,36 @@ export const getAllJobs = async () => {
     console.error("Error in getAllJobs:", error);
     throw error;
   }
+};
+
+// New function to apply for a job
+export const applyForJob = async (jobId: string | number) => {
+  try {
+    const contract = await getContract(true); // Need signer to send transaction
+    const tx = await contract.applyForJob(jobId);
+    await tx.wait();
+    console.log(`Applied for job ${jobId}, transaction:`, tx.hash);
+    return tx.hash;
+  } catch (error) {
+    console.error("Error applying for job:", error);
+    throw new Error(parseContractError(error));
+  }
+};
+
+// New function to get job applicants
+export const getJobApplicants = async (jobId: string | number): Promise<string[]> => {
+  try {
+    const contract = await getContract();
+    const applicants = await contract.getJobApplicants(jobId);
+    return applicants;
+  } catch (error) {
+    console.error("Error getting job applicants:", error);
+    throw new Error(parseContractError(error));
+  }
+};
+
+// Helper to parse contract errors
+const parseContractError = (error: any): string => {
+  // Implement your error parsing logic here
+  return "An error occurred. Please try again later or contact support.";
 }; 

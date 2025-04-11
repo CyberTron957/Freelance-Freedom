@@ -53,11 +53,8 @@ export default function CreateJob() {
       const jobId = await createJob(title, description);
       console.log(`Job created with ID: ${jobId}`);
       
-      // --- MOCK FOR TESTING --- 
-      // Skip actual funding as requested, job state will remain 'Created' on-chain.
-      // await fundJob(jobId, budget); 
-      console.warn(`Skipping funding for job ${jobId} for testing purposes.`);
-      // --- END MOCK --- 
+      // Fund the job on blockchain
+      await fundJob(jobId, budget);
       
       // Redirect to the newly created job detail page
       router.push(`/jobs/${jobId}`); 

@@ -26,19 +26,24 @@ import type {
 export interface FreelancerEscrowInterface extends Interface {
   getFunction(
     nameOrSignature:
+      | "applyForJob"
       | "assignFreelancer"
       | "cancelJob"
       | "completeJob"
       | "createJob"
       | "fundJob"
       | "getJob"
+      | "getJobApplicants"
       | "getJobCount"
+      | "hasApplied"
+      | "jobApplicants"
       | "jobCount"
       | "jobs"
   ): FunctionFragment;
 
   getEvent(
     nameOrSignatureOrTopic:
+      | "JobApplied"
       | "JobAssigned"
       | "JobCancelled"
       | "JobCompleted"
@@ -48,6 +53,10 @@ export interface FreelancerEscrowInterface extends Interface {
       | "JobRefunded"
   ): EventFragment;
 
+  encodeFunctionData(
+    functionFragment: "applyForJob",
+    values: [BigNumberish]
+  ): string;
   encodeFunctionData(
     functionFragment: "assignFreelancer",
     values: [BigNumberish, AddressLike]
@@ -73,12 +82,28 @@ export interface FreelancerEscrowInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "getJobApplicants",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "getJobCount",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "hasApplied",
+    values: [BigNumberish, AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "jobApplicants",
+    values: [BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(functionFragment: "jobCount", values?: undefined): string;
   encodeFunctionData(functionFragment: "jobs", values: [BigNumberish]): string;
 
+  decodeFunctionResult(
+    functionFragment: "applyForJob",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "assignFreelancer",
     data: BytesLike
@@ -92,11 +117,33 @@ export interface FreelancerEscrowInterface extends Interface {
   decodeFunctionResult(functionFragment: "fundJob", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "getJob", data: BytesLike): Result;
   decodeFunctionResult(
+    functionFragment: "getJobApplicants",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "getJobCount",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "hasApplied", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "jobApplicants",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "jobCount", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "jobs", data: BytesLike): Result;
+}
+
+export namespace JobAppliedEvent {
+  export type InputTuple = [jobId: BigNumberish, applicant: AddressLike];
+  export type OutputTuple = [jobId: bigint, applicant: string];
+  export interface OutputObject {
+    jobId: bigint;
+    applicant: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
 
 export namespace JobAssignedEvent {
@@ -241,6 +288,12 @@ export interface FreelancerEscrow extends BaseContract {
     event?: TCEvent
   ): Promise<this>;
 
+  applyForJob: TypedContractMethod<
+    [_jobId: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   assignFreelancer: TypedContractMethod<
     [_jobId: BigNumberish, _freelancer: AddressLike],
     [void],
@@ -291,7 +344,25 @@ export interface FreelancerEscrow extends BaseContract {
     "view"
   >;
 
+  getJobApplicants: TypedContractMethod<
+    [_jobId: BigNumberish],
+    [string[]],
+    "view"
+  >;
+
   getJobCount: TypedContractMethod<[], [bigint], "view">;
+
+  hasApplied: TypedContractMethod<
+    [arg0: BigNumberish, arg1: AddressLike],
+    [boolean],
+    "view"
+  >;
+
+  jobApplicants: TypedContractMethod<
+    [arg0: BigNumberish, arg1: BigNumberish],
+    [string],
+    "view"
+  >;
 
   jobCount: TypedContractMethod<[], [bigint], "view">;
 
@@ -327,6 +398,9 @@ export interface FreelancerEscrow extends BaseContract {
     key: string | FunctionFragment
   ): T;
 
+  getFunction(
+    nameOrSignature: "applyForJob"
+  ): TypedContractMethod<[_jobId: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "assignFreelancer"
   ): TypedContractMethod<
@@ -380,8 +454,25 @@ export interface FreelancerEscrow extends BaseContract {
     "view"
   >;
   getFunction(
+    nameOrSignature: "getJobApplicants"
+  ): TypedContractMethod<[_jobId: BigNumberish], [string[]], "view">;
+  getFunction(
     nameOrSignature: "getJobCount"
   ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "hasApplied"
+  ): TypedContractMethod<
+    [arg0: BigNumberish, arg1: AddressLike],
+    [boolean],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "jobApplicants"
+  ): TypedContractMethod<
+    [arg0: BigNumberish, arg1: BigNumberish],
+    [string],
+    "view"
+  >;
   getFunction(
     nameOrSignature: "jobCount"
   ): TypedContractMethod<[], [bigint], "view">;
@@ -415,6 +506,13 @@ export interface FreelancerEscrow extends BaseContract {
     "view"
   >;
 
+  getEvent(
+    key: "JobApplied"
+  ): TypedContractEvent<
+    JobAppliedEvent.InputTuple,
+    JobAppliedEvent.OutputTuple,
+    JobAppliedEvent.OutputObject
+  >;
   getEvent(
     key: "JobAssigned"
   ): TypedContractEvent<
@@ -466,6 +564,17 @@ export interface FreelancerEscrow extends BaseContract {
   >;
 
   filters: {
+    "JobApplied(uint256,address)": TypedContractEvent<
+      JobAppliedEvent.InputTuple,
+      JobAppliedEvent.OutputTuple,
+      JobAppliedEvent.OutputObject
+    >;
+    JobApplied: TypedContractEvent<
+      JobAppliedEvent.InputTuple,
+      JobAppliedEvent.OutputTuple,
+      JobAppliedEvent.OutputObject
+    >;
+
     "JobAssigned(uint256,address)": TypedContractEvent<
       JobAssignedEvent.InputTuple,
       JobAssignedEvent.OutputTuple,
