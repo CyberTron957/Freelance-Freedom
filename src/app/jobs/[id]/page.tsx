@@ -8,6 +8,15 @@ import { ethers } from 'ethers';
 
 // Status enum mapping
 const JobStatus = ["Created", "Funded", "Completed", "Disputed", "Refunded", "Cancelled"];
+// Status dark mode background classes
+const JobStatusDarkBg = [
+  "dark:bg-gray-700 dark:text-gray-300",
+  "dark:bg-green-900 dark:text-green-300",
+  "dark:bg-purple-900 dark:text-purple-300",
+  "dark:bg-red-900 dark:text-red-300",
+  "dark:bg-red-900 dark:text-red-300", // Refunded
+  "dark:bg-red-900 dark:text-red-300", // Cancelled
+];
 
 type Job = {
   id: string;
@@ -202,11 +211,11 @@ export default function JobDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white shadow">
+      <header className="bg-white dark:bg-gray-800 shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex justify-between items-center">
-          <Link href="/" className="text-3xl font-bold text-blue-600">
+          <Link href="/" className="text-3xl font-bold text-blue-600 dark:text-blue-500">
             FreelanceFreedom
           </Link>
           <div className="flex space-x-4">
@@ -219,13 +228,13 @@ export default function JobDetail() {
               </button>
             ) : (
               <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
                   {shortenAddress(walletAddress)}
                 </span>
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <Link
                   href="/jobs/browse"
-                  className="text-gray-600 hover:text-gray-900 px-4 py-2"
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-4 py-2"
                 >
                   Browse Jobs
                 </Link>
@@ -248,19 +257,19 @@ export default function JobDetail() {
         {loading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="mt-4 text-gray-500">Loading job details...</p>
+            <p className="mt-4 text-gray-500 dark:text-gray-400">Loading job details...</p>
           </div>
         ) : !job ? (
           <div className="text-center py-12">
-            <p className="text-xl text-gray-700">Job not found</p>
-            <Link href="/jobs/browse" className="mt-4 text-blue-600 hover:text-blue-800">
+            <p className="text-xl text-gray-700 dark:text-gray-300">Job not found</p>
+            <Link href="/jobs/browse" className="mt-4 text-blue-600 hover:text-blue-800 dark:text-blue-500 dark:hover:text-blue-400">
               Back to Jobs
             </Link>
           </div>
         ) : (
-          <div className="bg-white shadow rounded-lg overflow-hidden">
-            <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center">
-              <h1 className="text-2xl font-bold text-gray-900">{job.title}</h1>
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{job.title}</h1>
               <span
                 className={`px-3 py-1 text-sm rounded-full ${
                   job.status === 0
@@ -270,65 +279,65 @@ export default function JobDetail() {
                     : job.status === 2
                     ? "bg-purple-100 text-purple-800"
                     : "bg-red-100 text-red-800"
-                }`}
+                } ${JobStatusDarkBg[job.status] ?? ""}`}
               >
                 {JobStatus[job.status]}
               </span>
             </div>
 
-            <div className="px-6 py-5">
+            <div className="px-6 py-5 text-gray-900 dark:text-gray-100">
               <div className="flex justify-between mb-6">
                 <div>
-                  <p className="text-sm text-gray-500">Posted by</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Posted by</p>
                   <p className="text-md font-medium">{isClient ? "You" : shortenAddress(job.client)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Budget</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Budget</p>
                   <p className="text-md font-medium">{job.amount} ETH</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Posted on</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Posted on</p>
                   <p className="text-md font-medium">{formatDate(job.createdAt)}</p>
                 </div>
               </div>
 
               <div className="mb-6">
                 <h2 className="text-lg font-medium mb-2">Description</h2>
-                <p className="text-gray-700 whitespace-pre-line">{job.description}</p>
+                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-line">{job.description}</p>
               </div>
 
               {successMessage && (
-                <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
+                <div className="bg-green-50 dark:bg-green-900 border-l-4 border-green-400 dark:border-green-700 p-4 mb-6">
                   <div className="flex">
                     <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <svg className="h-5 w-5 text-green-400 dark:text-green-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                     </div>
                     <div className="ml-3">
-                      <p className="text-sm text-green-700">{successMessage}</p>
+                      <p className="text-sm text-green-700 dark:text-green-300">{successMessage}</p>
                     </div>
                   </div>
                 </div>
               )}
 
               {error && (
-                <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+                <div className="bg-red-50 dark:bg-red-900 border-l-4 border-red-400 dark:border-red-700 p-4 mb-6">
                   <div className="flex">
                     <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <svg className="h-5 w-5 text-red-400 dark:text-red-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                       </svg>
                     </div>
                     <div className="ml-3">
-                      <p className="text-sm text-red-700">{error}</p>
+                      <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Actions based on role and job status */}
-              <div className="mt-8 border-t border-gray-200 pt-6">
+              <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6">
                 {isClient && job.status === 1 && isUnassigned && (
                   <div>
                     <h3 className="text-lg font-medium mb-4">Assign Freelancer</h3>
@@ -336,7 +345,7 @@ export default function JobDetail() {
                       <input
                         type="text"
                         placeholder="Freelancer's wallet address"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                         value={freelancerAddress}
                         onChange={(e) => setFreelancerAddress(e.target.value)}
                         disabled={isSubmitting}
@@ -357,7 +366,7 @@ export default function JobDetail() {
                 {isClient && job.status === 1 && !isUnassigned && (
                   <div>
                     <h3 className="text-lg font-medium mb-4">Complete Job</h3>
-                    <p className="text-sm text-gray-600 mb-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                       Once you confirm completion, the payment of {job.amount} ETH will be released to the freelancer ({shortenAddress(job.freelancer)}). This action cannot be undone.
                     </p>
                     <button
@@ -375,7 +384,7 @@ export default function JobDetail() {
                 {isPotentialFreelancer && isFunded && isUnassigned && (
                   <div>
                     <h3 className="text-lg font-medium mb-4">Apply for This Job</h3>
-                    <p className="text-gray-700 mb-4">
+                    <p className="text-gray-700 dark:text-gray-300 mb-4">
                       Interested in this job? Apply now to let the client know you're available.
                     </p>
                     <button
@@ -393,7 +402,7 @@ export default function JobDetail() {
                 {job.status === 2 && (
                   <div>
                     <h3 className="text-lg font-medium mb-4">Job Completed</h3>
-                    <p className="text-gray-700">
+                    <p className="text-gray-700 dark:text-gray-300">
                       This job was completed on {formatDate(job.completedAt)} and the payment has been released to the freelancer ({shortenAddress(job.freelancer)}).
                     </p>
                   </div>
