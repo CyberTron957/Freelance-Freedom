@@ -1,406 +1,454 @@
 import { ethers } from 'ethers';
 
-// Replace with your deployed contract address
-export const CONTRACT_ADDRESS = '0x4E826E6738FE1F007391c07eb73742AAdF8d16C7';
+// Use environment variable for contract address with fallback
+export const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0x4E5a8ae1F09eEa5679634073089499FddAFeB4b2';
 
 export const ABI = [
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "jobId",
-          "type": "uint256"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "freelancer",
-          "type": "address"
-        }
-      ],
-      "name": "JobAssigned",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "jobId",
-          "type": "uint256"
-        }
-      ],
-      "name": "JobCancelled",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "jobId",
-          "type": "uint256"
-        }
-      ],
-      "name": "JobCompleted",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "jobId",
-          "type": "uint256"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "client",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "title",
-          "type": "string"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "JobCreated",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "jobId",
-          "type": "uint256"
-        }
-      ],
-      "name": "JobDisputed",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "jobId",
-          "type": "uint256"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "client",
-          "type": "address"
-        }
-      ],
-      "name": "JobFunded",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "jobId",
-          "type": "uint256"
-        }
-      ],
-      "name": "JobRefunded",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "jobId",
-          "type": "uint256"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "applicant",
-          "type": "address"
-        }
-      ],
-      "name": "JobApplied",
-      "type": "event"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_jobId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "address",
-          "name": "_freelancer",
-          "type": "address"
-        }
-      ],
-      "name": "assignFreelancer",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_jobId",
-          "type": "uint256"
-        }
-      ],
-      "name": "cancelJob",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_jobId",
-          "type": "uint256"
-        }
-      ],
-      "name": "completeJob",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "_title",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "_description",
-          "type": "string"
-        }
-      ],
-      "name": "createJob",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_jobId",
-          "type": "uint256"
-        }
-      ],
-      "name": "fundJob",
-      "outputs": [],
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_jobId",
-          "type": "uint256"
-        }
-      ],
-      "name": "applyForJob",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_jobId",
-          "type": "uint256"
-        }
-      ],
-      "name": "getJob",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "id",
-          "type": "uint256"
-        },
-        {
-          "internalType": "address",
-          "name": "client",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "freelancer",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "string",
-          "name": "title",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "description",
-          "type": "string"
-        },
-        {
-          "internalType": "enum FreelancerEscrow.JobStatus",
-          "name": "status",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint256",
-          "name": "createdAt",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "completedAt",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_jobId",
-          "type": "uint256"
-        }
-      ],
-      "name": "getJobApplicants",
-      "outputs": [
-        {
-          "internalType": "address[]",
-          "name": "",
-          "type": "address[]"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getJobCount",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "jobCount",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "jobs",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "id",
-          "type": "uint256"
-        },
-        {
-          "internalType": "address",
-          "name": "client",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "freelancer",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "string",
-          "name": "title",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "description",
-          "type": "string"
-        },
-        {
-          "internalType": "enum FreelancerEscrow.JobStatus",
-          "name": "status",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint256",
-          "name": "createdAt",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "completedAt",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    }
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "jobId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "applicant",
+        "type": "address"
+      }
+    ],
+    "name": "JobApplied",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "jobId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "freelancer",
+        "type": "address"
+      }
+    ],
+    "name": "JobAssigned",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "jobId",
+        "type": "uint256"
+      }
+    ],
+    "name": "JobCancelled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "jobId",
+        "type": "uint256"
+      }
+    ],
+    "name": "JobCompleted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "jobId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "client",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "title",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "JobCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "jobId",
+        "type": "uint256"
+      }
+    ],
+    "name": "JobDisputed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "jobId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "client",
+        "type": "address"
+      }
+    ],
+    "name": "JobFunded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "jobId",
+        "type": "uint256"
+      }
+    ],
+    "name": "JobRefunded",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_jobId",
+        "type": "uint256"
+      }
+    ],
+    "name": "applyForJob",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_jobId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_freelancer",
+        "type": "address"
+      }
+    ],
+    "name": "assignFreelancer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_jobId",
+        "type": "uint256"
+      }
+    ],
+    "name": "cancelJob",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_jobId",
+        "type": "uint256"
+      }
+    ],
+    "name": "completeJob",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_title",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_description",
+        "type": "string"
+      }
+    ],
+    "name": "createJob",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_jobId",
+        "type": "uint256"
+      }
+    ],
+    "name": "fundJob",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_jobId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getJob",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "client",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "freelancer",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "title",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "description",
+        "type": "string"
+      },
+      {
+        "internalType": "enum FreelancerEscrow.JobStatus",
+        "name": "status",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "createdAt",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "completedAt",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_jobId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getJobApplicants",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "",
+        "type": "address[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getJobCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "hasApplied",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "jobApplicants",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "jobCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "jobs",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "client",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "freelancer",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "title",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "description",
+        "type": "string"
+      },
+      {
+        "internalType": "enum FreelancerEscrow.JobStatus",
+        "name": "status",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "createdAt",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "completedAt",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
 ];
 
 // Add ethers window extension
@@ -499,46 +547,43 @@ export const getContract = async (withSigner = false) => {
 export const createJob = async (title: string, description: string) => {
   const signerContract = await getContract(true);
 
-  // Get provider from the contract's runner (signer) in Ethers v6
-  const runner = signerContract.runner;
-  if (!runner?.provider) {
-    throw new Error("Provider not found on contract runner (signer).");
-  }
-  const provider = runner.provider;
-
   const tx = await signerContract.createJob(title, description);
-  console.log(`Transaction sent. Hash: ${tx.hash}`); // Log TX hash immediately
+  console.log(`Transaction sent. Hash: ${tx.hash}`);
 
   // Wait for the transaction to be mined
   const receipt = await tx.wait(); 
 
   if (!receipt) {
-    console.error("Transaction receipt is null after waiting.");
-    console.error(`Transaction Hash: ${tx.hash}`);
+    console.error("Transaction receipt is null after waiting. TX Hash:", tx.hash);
     throw new Error("Transaction confirmation failed or receipt unavailable.");
   }
+  
+  // **Explicitly check transaction status**
+  if (receipt.status === 0) {
+    console.error("Transaction failed on-chain (Status 0). TX Hash:", tx.hash);
+    console.error("Receipt:", receipt);
+    throw new Error("Blockchain transaction failed. Job not created.");
+  }
 
-  // Parse logs from the receipt obtained via tx.wait()
-  // NOTE: Using receipt.logs directly is generally preferred over fetching again unless specifically needed.
-  const contractInterface = new ethers.Interface(ABI); // Use ethers.Interface in v6
+  // Parse logs from the receipt
+  const contractInterface = new ethers.Interface(ABI);
   let jobCreatedEventData: ethers.LogDescription | null = null;
-  const foundEventNames: string[] = []; // Track all parsed event names
+  const foundEventNames: string[] = [];
 
-  // Use receipt.logs directly
   for (const log of receipt.logs) {
       try {
-          // Explicitly type parsedLog
-          const parsedLog: ethers.LogDescription | null = contractInterface.parseLog({ topics: [...log.topics], data: log.data });
+          // Attempt to parse the log with the contract's ABI
+          const parsedLog = contractInterface.parseLog({ topics: [...log.topics], data: log.data });
           if (parsedLog) {
-            foundEventNames.push(parsedLog.name); // Log name regardless
-            if (parsedLog.name === "JobCreated") {
+            foundEventNames.push(parsedLog.name);
+            // Check if the log address matches our contract address for certainty
+            if (log.address.toLowerCase() === CONTRACT_ADDRESS.toLowerCase() && parsedLog.name === "JobCreated") {
                 jobCreatedEventData = parsedLog;
-                // Don't break; log all events found for debugging
+                break; // Found the event, no need to continue looping
             }
           }
       } catch (error) {
-          // Log might not be from our contract, or ABI doesn't match
-          // console.debug("Could not parse log:", log, error); // Optional: debug logging
+          // Log might not be from our contract ABI, ignore parsing error
           continue;
       }
   }
@@ -546,29 +591,15 @@ export const createJob = async (title: string, description: string) => {
   if (!jobCreatedEventData || !jobCreatedEventData.args) {
     console.error("JobCreated event not found or args missing in transaction receipt logs.");
     console.error("Transaction Hash:", tx.hash);
-    console.error("Final Receipt:", receipt); // Log the receipt we have
-    console.error("Parsed Event Names Found:", foundEventNames); // Log found event names
+    console.error("Final Receipt Status:", receipt.status);
+    console.error("Final Receipt Logs:", receipt.logs); 
+    console.error("Parsed Event Names Found:", foundEventNames);
+    console.error("Using Contract Address:", CONTRACT_ADDRESS);
     throw new Error("Could not determine Job ID after creation. Event missing or could not be parsed."); 
   }
-  
-  // Re-parsing to find the first event (optional if the loop logic is sufficient)
-  const firstJobCreatedEvent = receipt.logs
-      .map((log: ethers.Log) => { // Add explicit type for log in map
-          try { 
-              // Ensure log format matches what parseLog expects
-              return contractInterface.parseLog({ topics: [...log.topics], data: log.data }); 
-          } catch { return null; }
-      })
-      // Add explicit type for parsedLog in find
-      .find((parsedLog: ethers.LogDescription | null) => parsedLog?.name === "JobCreated");
 
-  if (!firstJobCreatedEvent || !firstJobCreatedEvent.args) {
-      console.error("Failed to re-find JobCreated event after initial check.");
-      throw new Error("Internal error processing JobCreated event.");
-  }
-
-  // In Ethers v6, BigInt is often used for uint256. Convert safely.
-  const jobIdBigInt = firstJobCreatedEvent.args[0];
+  // Extract Job ID from the found event
+  const jobIdBigInt = jobCreatedEventData.args[0]; // Should be the jobId based on event definition
   const jobId = typeof jobIdBigInt === 'bigint' ? jobIdBigInt.toString() : jobIdBigInt;
   
   console.log(`Successfully found JobCreated event for Job ID: ${jobId}`);
@@ -600,27 +631,32 @@ export const completeJob = async (jobId: string | number) => {
 
 // Get a job by ID
 export const getJob = async (jobId: string | number) => {
-  const contract = await getContract();
-  const job = await contract.getJob(jobId);
-  
-  // Use ethers.formatEther in v6
-  // Handle potential BigInt return values from contract
-  const amount = job.amount; // Assuming job.amount is BigInt or similar
-  const status = job.status; // Assuming job.status might be number or BigInt
-  const createdAt = job.createdAt; // Assuming job.createdAt is BigInt
-  const completedAt = job.completedAt; // Assuming job.completedAt is BigInt
-  
-  return {
-    id: typeof job.id === 'bigint' ? job.id.toString() : job.id,
-    client: job.client,
-    freelancer: job.freelancer,
-    amount: ethers.formatEther(amount),
-    title: job.title,
-    description: job.description,
-    status: typeof status === 'bigint' ? Number(status) : status, // Convert BigInt status to number if needed
-    createdAt: (typeof createdAt === 'bigint' ? Number(createdAt) : createdAt) * 1000, // Convert BigInt timestamp
-    completedAt: (typeof completedAt === 'bigint' ? Number(completedAt) : completedAt) * 1000 // Convert BigInt timestamp
-  };
+  try {
+    const contract = await getContract();
+    const job = await contract.getJob(jobId);
+    
+    // Use ethers.formatEther in v6
+    // Handle potential BigInt return values from contract
+    const amount = job.amount; // Assuming job.amount is BigInt or similar
+    const status = job.status; // Assuming job.status might be number or BigInt
+    const createdAt = job.createdAt; // Assuming job.createdAt is BigInt
+    const completedAt = job.completedAt; // Assuming job.completedAt is BigInt
+    
+    return {
+      id: typeof job.id === 'bigint' ? job.id.toString() : job.id,
+      client: job.client,
+      freelancer: job.freelancer,
+      amount: ethers.formatEther(amount),
+      title: job.title,
+      description: job.description,
+      status: typeof status === 'bigint' ? Number(status) : status, // Convert BigInt status to number if needed
+      createdAt: (typeof createdAt === 'bigint' ? Number(createdAt) : createdAt) * 1000, // Convert BigInt timestamp
+      completedAt: (typeof completedAt === 'bigint' ? Number(completedAt) : completedAt) * 1000 // Convert BigInt timestamp
+    };
+  } catch (error) {
+    console.error(`Error getting job ${jobId}:`, error);
+    throw new Error(`Job with ID ${jobId} not found or contract error: ${error instanceof Error ? error.message : String(error)}`);
+  }
 };
 
 // Get total number of jobs

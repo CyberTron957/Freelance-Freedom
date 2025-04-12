@@ -45,6 +45,10 @@ export default function JobDetail() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [applicants, setApplicants] = useState<string[]>([]);
   const [fetchingApplicants, setFetchingApplicants] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [workSubmitted, setWorkSubmitted] = useState(false);
 
   // Memoize fetchJob using useCallback to ensure stable reference
   const fetchJob = useCallback(async () => {
@@ -72,22 +76,31 @@ export default function JobDetail() {
         }
       }
 
-    } catch (err) {
-      console.error("Error fetching job details from blockchain, using mock data:", err);
-      setError("Failed to load job details from blockchain. Displaying mock data.");
+    } catch (err: any) {
+      console.error("Error fetching job details:", err);
       
-      const mockJob = {
-        id: params.id as string,
-        client: "0x123...456",
-        freelancer: params.id === "2" ? "0xabc...def" : "0x0000000000000000000000000000000000000000",
-        amount: "1",
-        title: "Mock Job: Build a Website",
-        description: "This is mock data. Looking for a developer to build a portfolio website...",
-        status: params.id === "2" ? 1 : 1,
-        createdAt: Date.now() - 86400000,
-        completedAt: 0
-      };
-      setJob(mockJob);
+      // Check if we need to create mock data for development
+      const useMockData = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true';
+      
+      if (useMockData) {
+        setError("Failed to load job details from blockchain. Displaying mock data for development.");
+        const mockJob = {
+          id: params.id as string,
+          client: "0x123...456",
+          freelancer: params.id === "2" ? "0xabc...def" : "0x0000000000000000000000000000000000000000",
+          amount: "1",
+          title: "Mock Job: Build a Website",
+          description: "This is mock data. Looking for a developer to build a portfolio website...",
+          status: params.id === "2" ? 1 : 1,
+          createdAt: Date.now() - 86400000,
+          completedAt: 0
+        };
+        setJob(mockJob);
+      } else {
+        // Job not found or blockchain error
+        setJob(null);
+        setError(err.message || "Failed to load job details. The job may not exist.");
+      }
     } finally {
       setLoading(false);
     }
@@ -131,6 +144,9 @@ export default function JobDetail() {
   const zeroAddress = "0x0000000000000000000000000000000000000000";
   const isUnassigned = job?.freelancer === zeroAddress;
   const isFunded = job?.status === 1;
+
+  // Check if the current user is the assigned freelancer
+  const isAssignedFreelancer = walletConnected && job?.freelancer.toLowerCase() === walletAddress.toLowerCase();
 
   const handleAssignFreelancer = async () => {
     if (!job || !walletConnected) return;
@@ -192,6 +208,34 @@ export default function JobDetail() {
       setError(err.message || "Failed to apply for job. Please check console and try again.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
+
+  const handleFileUpload = async () => {
+    if (!file) return;
+
+    setUploading(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      // In a real application, you would upload the file to IPFS or another storage service
+      // For this demo, we'll create a local URL
+      const url = URL.createObjectURL(file);
+      setFileUrl(url);
+      setWorkSubmitted(true);
+      setSuccessMessage("Work submitted successfully! Waiting for client review.");
+    } catch (err: any) {
+      console.error("Error uploading file:", err);
+      setError(err.message || "Failed to upload file. Please try again.");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -341,6 +385,42 @@ export default function JobDetail() {
                 {isClient && job.status === 1 && isUnassigned && (
                   <div>
                     <h3 className="text-lg font-medium mb-4">Assign Freelancer</h3>
+                    
+                    {/* Applicants Section */}
+                    {applicants.length > 0 ? (
+                      <div className="mb-6">
+                        <h4 className="text-md font-medium mb-2">Freelancers who have applied</h4>
+                        <div className="bg-gray-50 dark:bg-gray-900 rounded-md overflow-hidden">
+                          {applicants.map((applicant, index) => (
+                            <div 
+                              key={applicant} 
+                              className={`flex justify-between items-center p-3 ${
+                                index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-900' : 'bg-white dark:bg-gray-800'
+                              }`}
+                            >
+                              <div>
+                                <p className="font-medium">{shortenAddress(applicant)}</p>
+                              </div>
+                              <button
+                                className="bg-blue-600 text-white px-3 py-1 text-sm rounded-md hover:bg-blue-700"
+                                onClick={() => setFreelancerAddress(applicant)}
+                              >
+                                Select
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : fetchingApplicants ? (
+                      <div className="mb-6">
+                        <p className="text-gray-500 dark:text-gray-400">Loading applicants...</p>
+                      </div>
+                    ) : (
+                      <div className="mb-6">
+                        <p className="text-gray-500 dark:text-gray-400">No freelancers have applied to this job yet.</p>
+                      </div>
+                    )}
+                    
                     <div className="flex">
                       <input
                         type="text"
@@ -405,6 +485,104 @@ export default function JobDetail() {
                     <p className="text-gray-700 dark:text-gray-300">
                       This job was completed on {formatDate(job.completedAt)} and the payment has been released to the freelancer ({shortenAddress(job.freelancer)}).
                     </p>
+                  </div>
+                )}
+
+                {/* Freelancer Work Submission Section */}
+                {isAssignedFreelancer && job.status === 1 && (
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Submit Your Work</h3>
+                    {workSubmitted ? (
+                      <div>
+                        <p className="text-green-600 dark:text-green-400 mb-2">
+                          You have submitted your work and it is pending client review.
+                        </p>
+                        {fileUrl && (
+                          <div className="mt-2">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Submitted file:</p>
+                            <a 
+                              href={fileUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              {file?.name || "View submitted file"}
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-gray-700 dark:text-gray-300 mb-4">
+                          Upload your completed work for the client to review.
+                        </p>
+                        <div className="mb-4">
+                          <input
+                            type="file"
+                            onChange={handleFileChange}
+                            className="block w-full text-sm text-gray-900 dark:text-gray-100
+                              file:mr-4 file:py-2 file:px-4
+                              file:rounded-md file:border-0
+                              file:text-sm file:font-semibold
+                              file:bg-blue-50 file:text-blue-700
+                              dark:file:bg-blue-900 dark:file:text-blue-200
+                              hover:file:bg-blue-100 dark:hover:file:bg-blue-800"
+                            disabled={uploading}
+                          />
+                        </div>
+                        <button
+                          className={`bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 ${
+                            (uploading || !file) && "opacity-50 cursor-not-allowed"
+                          }`}
+                          onClick={handleFileUpload}
+                          disabled={uploading || !file}
+                        >
+                          {uploading ? "Uploading..." : "Submit Work"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Client Review Section */}
+                {isClient && job.status === 1 && !isUnassigned && fileUrl && (
+                  <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <h3 className="text-lg font-medium mb-4">Review Submitted Work</h3>
+                    <p className="text-gray-700 dark:text-gray-300 mb-4">
+                      The freelancer has submitted their work for your review. Please check the work before releasing payment.
+                    </p>
+                    <div className="mb-4">
+                      <a 
+                        href={fileUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline mb-4 inline-block"
+                      >
+                        View Submitted File
+                      </a>
+                    </div>
+                    <div className="flex space-x-4">
+                      <button
+                        className={`bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 ${
+                          isSubmitting && "opacity-50 cursor-not-allowed"
+                        }`}
+                        onClick={handleCompleteJob}
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? "Processing..." : "Approve & Release Payment"}
+                      </button>
+                      <button
+                        className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
+                        onClick={() => {
+                          setWorkSubmitted(false);
+                          setFileUrl(null);
+                          setFile(null);
+                          setSuccessMessage("Requested changes from freelancer.");
+                        }}
+                      >
+                        Request Changes
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
